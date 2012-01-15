@@ -27,6 +27,10 @@ Usage:
 
 	builder.build(projectFile = projectFile, configuration = "release", assemblyInfo = assemblyInfo)
 
+	From a command prompt, execute the script as follows (replace build.py with the name of your script
+	if you named it differently):
+		C:\Path\to\your\project\folder> python build.py
+
 API:
 	These are the functions that Pyke makes available for use in your build scripts:
 
