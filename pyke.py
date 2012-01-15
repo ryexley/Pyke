@@ -4,6 +4,15 @@ Pyke, a Python make tool for .NET
 This class contains common functions useful for building and packaging .NET based
 applications.
 
+Dependencies:
+	MSBuild: 
+		Pyke uses MSBuild to compile .NET projects. It will need to be available
+		and you will need to know and provide the path to it.
+	Nuget: 
+		If you wish to use Pyke to generate Nuget packages, you will need to have
+		the Nuget command line tool available on your computer and will need to
+		know and provide the full path to it.
+
 Usage:
 	The following can be copied and pasted into a build script to get you started:
 
@@ -88,14 +97,12 @@ __date__ = "$Date: 2012/01/15 $"
 __copyright__ = "Copyright (c) 2012 You"
 __license__ = "Public domain (use at your own risk)"
 
-import os, fnmatch, subprocess, re, getpass
+import os, shutil, fnmatch, shlex, subprocess, re, getpass
 import datetime as dt
 
 class pyke :
 
-	msbuild = os.path.join(os.environ["WINDIR"], "Microsoft.NET", "Framework64", "v4.0.30319", "msbuild.exe")
-
-	def __init__ (self, basedir = None, msbuild = None, outputDir = None) :
+	def __init__ (self, basedir = None, msbuild = None, outputDir = None, nuget = None) :
 		if basedir == None :
 			self.basedir = os.path.abspath(os.curdir)
 		else :
@@ -110,6 +117,11 @@ class pyke :
 			self.buildOutputDir = os.path.join(self.basedir, "BuildOutput")
 		else :
 			self.buildOutputDir = outputDir
+		
+		if nuget == None :
+			self.nuget = os.path.join("C:\\", "nuget", "nuget.exe")
+		else :
+			self.nuget = nuget
 		
 		self.assemblyInfoFiles = self.getAssemblyInfoFiles()
 		self.user = getpass.getuser()
@@ -183,11 +195,7 @@ class pyke :
 		if not os.path.exists(self.buildOutputDir) : # create the build output directory if it doesn't exist
 			os.makedirs(self.buildOutputDir)
 		else : # otherwise, if it exists, make sure there's nothing in it before we send build output into it
-			for root, dirs, files in os.walk(self.buildOutputDir, topdown = False) :
-				for name in files :
-					os.remove(os.path.join(root, name))
-				for name in dirs :
-					os.rmdir(os.path.join(root, name))
+			self.cleanDir(self.buildOutputDir)
 		
 		self.writeBannerMessage("Compiling to output directory: %s" % self.buildOutputDir)
 
@@ -243,6 +251,23 @@ class pyke :
 				os.rename("%s.build-temp" % asmInfoFile, asmInfoFile)
 			except IOError :
 				raise Exception("Error restoring original AssemblyInfo file: %s" % asmInfoFile)
+	
+	def cleanDir(self, target) :
+		for root, dirs, files in os.walk(target, topdown = False) :
+			for name in files :
+				os.remove(os.path.join(root, name))
+			for name in dirs :
+				os.rmdir(os.path.join(root, name))
+	
+	def copyFolderContents(self, sourceDir, targetDir) :
+		try :
+			if os.path.exists(targetDir) :
+				self.cleanDir(targetDir)
+				os.rmdir(targetDir)
+
+			shutil.copytree(sourceDir, targetDir)
+		except OSError :
+			raise Exception("Unable to copy directory contents: \n%s" % osex)
 
 	def formatBlock(self, block) :
 		lines = str(block).split("\n")
@@ -268,3 +293,20 @@ class pyke :
 		)
 
 		print bannerMessage % message
+
+	def generateNuspec(self, targetDir, specName = None) :
+		if specName == None :
+			if self.projectFile != None :
+				self.specName = os.path.splitext(self.projectFile)
+		else :
+			self.specName = specName
+		
+		command = "%s spec %s" % (self.nuget, self.specName)
+		print command
+
+		args = shlex.split(command)
+		print args
+		
+		specOutput = subprocess.Popen(args, cwd = targetDir)
+
+		print specOutput
