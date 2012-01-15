@@ -7,6 +7,8 @@ applications.
 Usage:
 	The following can be copied and pasted into a build script to get you started:
 
+	>% ==== START SNIP HERE ==== %<
+
 	import pyke, os
 
 	builder = pyke.pyke(basedir = os.curdir)
@@ -26,6 +28,8 @@ Usage:
 	}
 
 	builder.build(projectFile = projectFile, configuration = "release", assemblyInfo = assemblyInfo)
+
+	>% ==== END SNIP HERE ==== %<
 
 	From a command prompt, execute the script as follows (replace build.py with the name of your script
 	if you named it differently):
