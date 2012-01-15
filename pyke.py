@@ -87,6 +87,12 @@ API:
 
 TODO:
 	* Nuget package generation
+	* Add docstrings to class operations
+	* Add logging - replace print statements with logging (http://docs.python.org/library/logging.html)
+	* Check for the existence of the WINDIR environment variable. Raise exception if it can't be resolved
+	* Use os.walk to find MSBuild and Nuget (just to add some robustness)
+	* Add the ability to specify a framework version for build (should be used to determine the MSBuild location)
+	* Rename the compile operation to something else..."compile" is a python reserved word
 	* Unit test execution
 
 """
