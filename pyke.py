@@ -307,12 +307,9 @@ class pyke :
 		else :
 			self.specName = specName
 		
-		command = "%s spec %s" % (self.nuget, self.specName)
-		print command
+		command = "nuget spec -Force %s" % self.specName
 
 		args = shlex.split(command)
-		print args
 		
-		specOutput = subprocess.Popen(args, cwd = targetDir)
-
-		print specOutput
+		specOutput = subprocess.Popen(args, executable = self.nuget, cwd = targetDir, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+		print specOutput.stdout.read()
