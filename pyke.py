@@ -11,7 +11,9 @@ Dependencies:
 	Nuget: 
 		If you wish to use Pyke to generate Nuget packages, you will need to have
 		the Nuget command line tool available on your computer and will need to
-		know and provide the full path to it.
+		know and provide the full path to it. If you don't have it installed, it
+		can be downloaded from the following URL:
+			http://nuget.codeplex.com/releases/view/58939
 
 Usage:
 	The following can be copied and pasted into a build script to get you started:
@@ -313,3 +315,33 @@ class pyke :
 		
 		specOutput = subprocess.Popen(args, executable = self.nuget, cwd = targetDir, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
 		print specOutput.stdout.read()
+
+	def generateNugetPackage(self, version = None, specFile = None, targetDir = None, outputDir = None) :
+		if specFile == None and targetDir == None :
+			raise Exception("Can't generate a nuget package without specifying either a nuspec file or a directory that contains a nuspec file.")
+		
+		args = []
+		args.append('"%s"' % self.nuget)
+		args.append("pack")
+
+		if specFile != None :
+			args.append('"%s"' % specFile)
+
+		if version != None :
+			args.append("-Version %s" % version)
+		
+		if outputDir != None :
+			args.append('-OutputDirectory "%s"' % outputDir)
+		
+		args.append("-NoPackageAnalysis")
+
+		if targetDir != None :
+			workingDir = targetDir
+		else :
+			workingDir = self.basedir
+
+		command = " ".join(args)
+		processInput = shlex.split(command)
+
+		packOutput = subprocess.Popen(processInput, executable = self.nuget, cwd = workingDir, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+		print packOutput.stdout.read()
