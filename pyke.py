@@ -16,29 +16,52 @@ Dependencies:
 			http://nuget.codeplex.com/releases/view/58939
 
 Usage:
-	The following can be copied and pasted into a build script to get you started:
+	The following sample snippet uses Pyke to build and package a web application project, and 
+	can be copied and pasted into a build script to get you started:
 
 	>% ==== START SNIP HERE ==== %<
 
-	import pyke, os
+	import pyke, os, shutil
 
-	builder = pyke.pyke(basedir = os.curdir)
-	projectFile = "YourProject.csproj"
-	version = builder.getVersion()
+	p = pyke.pyke(basedir = os.curdir)
+	projectFile = "Your.Web.csproj"
+	version = p.getVersion()
 	assemblyInfo = {
 		"ClsCompliant" : "false",
 		"ComVisible" : "false",
-		"Title" : "Carbon",
-		"Description" : "Food Donation Connection core web platform",
-		"Company" : "Food Donation Connection",
-		"Product" : "Carbon",
-		"Copyright" : "Copyright 2011-2012, Fo Donation Connection, All rights reserved",
+		"Title" : "Your Web Application",
+		"Description" : "A description of Your Web Application",
+		"Company" : "Your company/organization name",
+		"Product" : "Your Product Name",
+		"Copyright" : "Copyright 2011-2012, Your Company Name, All rights reserved",
 		"Version" : "1.0",
 		"InformationalVersion" : version,
 		"FileVersion" : version
 	}
 
-	builder.build(projectFile = projectFile, configuration = "release", assemblyInfo = assemblyInfo)
+	# Build the web project in release configuration
+	p.build(projectFile = projectFile, configuration = "release", assemblyInfo = assemblyInfo)
+
+	# Create a clean directory, with everything where it needs to be, in preparation for packaging
+	packageSourceDir = os.path.join(p.basedir, "PackageSource")
+	if not os.path.exists(packageSourceDir) :
+		os.makedirs(packageSourceDir)
+	else :
+		p.cleanDir(packageSourceDir)
+
+	p.copyFolderContents(os.path.join(p.buildOutputDir, "_PublishedWebsites", "Your.Web"), os.path.join(p.basedir, "PackageSource"))
+
+	# Build Nuget package
+	deploymentPackagesFolder = os.path.join(p.basedir, "DeploymentPackages")
+	if not os.path.exists(deploymentPackagesFolder) :
+		os.makedirs(deploymentPackagesFolder)
+	nb.packageNuget(targetDir = packageSourceDir, specName = os.path.splitext(projectFile)[0], version = version, outputDir = deploymentPackagesFolder)
+
+	# Cleanup
+	p.cleanDir(nb.buildOutputDir)
+	p.cleanDir(packageSourceDir)
+	os.rmdir(p.buildOutputDir)
+	os.rmdir(packageSourceDir)
 
 	>% ==== END SNIP HERE ==== %<
 
@@ -78,6 +101,13 @@ API:
 	restoreOriginalAssemblyInfoFiles:
 		Deletes the AssemblyInfo.cs files created by generateAssemblyInfoFiles, and restores the original
 		AssemblyInfo.cs files
+	
+	cleanDir:
+		Utility function for cleaning out (emptying, deleting all files) the given target directory
+	
+	copyFolderContents:
+		Utility function for copying the contents of the given sourceDir into the given targetDir (and
+		creates the given targetDir if it doesn't already exist)
 
 	formatBlock:
 		Utility operation that takes a multi-line block of text (without normally required string
@@ -86,9 +116,21 @@ API:
 
 	writeBannerMessage:
 		Utility operation for printing a formatted banner message to standard output
+	
+	packageNuget:
+		Generates a Nuget package spec file, and uses it to generate a Nuget package with the
+		given specName, version, targetDir and outputDir.
+	
+	generateNuspec:
+		Generates a Nuget package spec file with the given specName against the given targetDir
+	
+	generateNugetPackage:
+		Generates a Nuget package with the given version and specFile to the given outputDir against
+		the given targetDir.
 
 TODO:
-	* Nuget package generation
+	* Add composite build and package operations
+	* Add cleanup operations (clean and delete build output and package source directories)
 	* Add docstrings to class operations
 	* Add logging - replace print statements with logging (http://docs.python.org/library/logging.html)
 	* Check for the existence of the WINDIR environment variable. Raise exception if it can't be resolved
@@ -272,6 +314,8 @@ class pyke :
 			if os.path.exists(targetDir) :
 				self.cleanDir(targetDir)
 				os.rmdir(targetDir)
+			else :
+				os.makedirs(targetDir)
 
 			shutil.copytree(sourceDir, targetDir)
 		except OSError :
@@ -301,11 +345,29 @@ class pyke :
 		)
 
 		print bannerMessage % message
+	
+	def packageNuget(self, targetDir, specName = None, version = None, outputDir = None) :
+		if not os.path.isfile(self.nuget) :
+			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
+
+		if not os.path.exists(targetDir) :
+			raise Exception("A directory containing the desired package contents must be specified for package generation")
+		
+		if specName == None :
+			raise Exception("A name for the package spec file must be provided")
+		else :
+			self.packageSpecFile = specName
+
+		self.generateNuspec(targetDir = targetDir, specName = self.packageSpecFile)
+		self.generateNugetPackage(version = version, specFile = os.path.join(targetDir, "%s.nuspec" % specName), outputDir = outputDir)
 
 	def generateNuspec(self, targetDir, specName = None) :
+		if not os.path.isfile(self.nuget) :
+			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
+
 		if specName == None :
 			if self.projectFile != None :
-				self.specName = os.path.splitext(self.projectFile)
+				self.specName = os.path.splitext(self.projectFile)[0]
 		else :
 			self.specName = specName
 		
@@ -317,6 +379,9 @@ class pyke :
 		print specOutput.stdout.read()
 
 	def generateNugetPackage(self, version = None, specFile = None, targetDir = None, outputDir = None) :
+		if not os.path.isfile(self.nuget) :
+			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
+		
 		if specFile == None and targetDir == None :
 			raise Exception("Can't generate a nuget package without specifying either a nuspec file or a directory that contains a nuspec file.")
 		
