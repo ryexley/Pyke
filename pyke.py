@@ -88,7 +88,7 @@ API:
 			* calls compile with the absolute path to the given project file and build configuration
 			* calls restoreOriginalAssemblyInfoFiles
 
-	compile:
+	compileProject:
 		Calls MSBuild to compile the given projectFile with the given build configuration
 
 	formatAssemblyInfoFileContent:
@@ -124,19 +124,21 @@ API:
 	generateNuspec:
 		Generates a Nuget package spec file with the given specName against the given targetDir
 	
+	generateNuspec:
+		Creates a custom Nuget package spec file merging the give specFileTemplate and the given
+		content in the given targetDir.
+	
 	generateNugetPackage:
 		Generates a Nuget package with the given version and specFile to the given outputDir against
 		the given targetDir.
 
 TODO:
-	* Add composite build and package operations
-	* Add cleanup operations (clean and delete build output and package source directories)
+	* Need to figure out a good way to handle cleanup on failed execution (exceptions, etc)
 	* Add docstrings to class operations
 	* Add logging - replace print statements with logging (http://docs.python.org/library/logging.html)
 	* Check for the existence of the WINDIR environment variable. Raise exception if it can't be resolved
 	* Use os.walk to find MSBuild and Nuget (just to add some robustness)
 	* Add the ability to specify a framework version for build (should be used to determine the MSBuild location)
-	* Rename the compile operation to something else..."compile" is a python reserved word
 	* Unit test execution
 
 """
@@ -152,7 +154,12 @@ import datetime as dt
 
 class pyke :
 
-	def __init__ (self, basedir = None, msbuild = None, outputDir = None, nuget = None) :
+	def __init__ (
+		self, 
+		basedir = None, 
+		msbuild = None, 
+		outputDir = None, 
+		nuget = None) :
 		if basedir == None :
 			self.basedir = os.path.abspath(os.curdir)
 		else :
@@ -175,25 +182,13 @@ class pyke :
 		
 		self.assemblyInfoFiles = self.getAssemblyInfoFiles()
 		self.user = getpass.getuser()
-
-	def getAssemblyInfoFiles(self) :
-		asmInfoFiles = []
-		for path, dirs, files in os.walk(os.path.abspath(self.basedir)) :
-			for filename in fnmatch.filter(files, "AssemblyInfo.cs") :
-				asmInfoFiles.append(os.path.join(path, filename))
-		return asmInfoFiles
-
-	def getVersion(self) :
-		now = dt.datetime.now()
-		version = now.strftime("%Y.%m.%d.%H%M")
-		return version
 	
-	def getProjectFilePath(self, filename) :
-		for path, dirs, files in os.walk(os.path.abspath(self.basedir)) :
-			for filename in fnmatch.filter(files, filename) :
-				return os.path.abspath(os.path.join(path, filename))
-	
-	def build(self, projectFile = None, configuration = "debug", assemblyInfo = None, version = None) :
+	def build(
+		self, 
+		projectFile = None, 
+		configuration = "debug", 
+		assemblyInfo = None, 
+		version = None) :
 		if projectFile == None :
 			raise Exception("No project or solution file specified")
 		
@@ -223,10 +218,20 @@ class pyke :
 			self.version = version
 		
 		self.generateAssemblyInfoFiles(assemblyInfo)
-		self.compile(projectFile = projectFile, configuration = configuration)
+		self.compileProject(projectFile = projectFile, configuration = configuration)
 		self.restoreOriginalAssemblyInfoFiles()
 	
-	def compile(self, configuration, projectFile = None) :
+	def cleanDir(self, target) :
+		for root, dirs, files in os.walk(target, topdown = False) :
+			for name in files :
+				os.remove(os.path.join(root, name))
+			for name in dirs :
+				os.rmdir(os.path.join(root, name))
+	
+	def compileProject(
+		self, 
+		configuration, 
+		projectFile = None) :
 		if projectFile == None :
 			raise Exception("No project or solution file specified")
 		else : 
@@ -256,6 +261,21 @@ class pyke :
 			self.restoreOriginalAssemblyInfoFiles()
 
 		print compileOutput
+	
+	def copyFolderContents(
+		self, 
+		sourceDir, 
+		targetDir) :
+		try :
+			if os.path.exists(targetDir) :
+				self.cleanDir(targetDir)
+				os.rmdir(targetDir)
+			else :
+				os.makedirs(targetDir)
+
+			shutil.copytree(sourceDir, targetDir)
+		except OSError :
+			raise Exception("Unable to copy directory contents: \n%s" % osex)
 
 	def formatAssemblyInfoFileContent(self, assemblyInfo) :
 		fileContent = self.formatBlock(
@@ -280,6 +300,18 @@ class pyke :
 		)
 
 		return fileContent % self.assemblyInfo
+
+	def formatBlock(self, block) :
+		lines = str(block).split("\n")
+		while lines and not lines[0] : del lines[0]
+		while lines and not lines[-1] : del lines[-1]
+		ws = re.match(r"\s*", lines[0]).group(0)
+		if ws :
+			lines = map(lambda x : x.replace(ws, "", 1), lines)
+		while lines and not lines[0] : del lines[0]
+		while lines and not lines[-1] : del lines[-1]
+
+		return "\n".join(lines) + "\n"
 	
 	def generateAssemblyInfoFiles(self, assemblyInfo) :
 		for asmInfoFile in self.assemblyInfoFiles :
@@ -293,92 +325,13 @@ class pyke :
 					newFile.close()
 			except IOError :
 				raise Exception("Error generating AssemblyInfo file")
-	
-	def restoreOriginalAssemblyInfoFiles(self) :
-		for asmInfoFile in self.assemblyInfoFiles :
-			try :
-				os.remove(asmInfoFile)
-				os.rename("%s.build-temp" % asmInfoFile, asmInfoFile)
-			except IOError :
-				raise Exception("Error restoring original AssemblyInfo file: %s" % asmInfoFile)
-	
-	def cleanDir(self, target) :
-		for root, dirs, files in os.walk(target, topdown = False) :
-			for name in files :
-				os.remove(os.path.join(root, name))
-			for name in dirs :
-				os.rmdir(os.path.join(root, name))
-	
-	def copyFolderContents(self, sourceDir, targetDir) :
-		try :
-			if os.path.exists(targetDir) :
-				self.cleanDir(targetDir)
-				os.rmdir(targetDir)
-			else :
-				os.makedirs(targetDir)
 
-			shutil.copytree(sourceDir, targetDir)
-		except OSError :
-			raise Exception("Unable to copy directory contents: \n%s" % osex)
-
-	def formatBlock(self, block) :
-		lines = str(block).split("\n")
-		while lines and not lines[0] : del lines[0]
-		while lines and not lines[-1] : del lines[-1]
-		ws = re.match(r"\s*", lines[0]).group(0)
-		if ws :
-			lines = map(lambda x : x.replace(ws, "", 1), lines)
-		while lines and not lines[0] : del lines[0]
-		while lines and not lines[-1] : del lines[-1]
-
-		return "\n".join(lines) + "\n"
-
-	def writeBannerMessage(self, message) :
-		bannerMessage = self.formatBlock(
-			"""
-
-			======================================================================
-			%s
-			======================================================================
-
-			"""
-		)
-
-		print bannerMessage % message
-	
-	def packageNuget(self, targetDir, specName = None, version = None, outputDir = None) :
-		if not os.path.isfile(self.nuget) :
-			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
-
-		if not os.path.exists(targetDir) :
-			raise Exception("A directory containing the desired package contents must be specified for package generation")
-		
-		if specName == None :
-			raise Exception("A name for the package spec file must be provided")
-		else :
-			self.packageSpecFile = specName
-
-		self.generateNuspec(targetDir = targetDir, specName = self.packageSpecFile)
-		self.generateNugetPackage(version = version, specFile = os.path.join(targetDir, "%s.nuspec" % specName), outputDir = outputDir)
-
-	def generateNuspec(self, targetDir, specName = None) :
-		if not os.path.isfile(self.nuget) :
-			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
-
-		if specName == None :
-			if self.projectFile != None :
-				self.specName = os.path.splitext(self.projectFile)[0]
-		else :
-			self.specName = specName
-		
-		command = "nuget spec -Force %s" % self.specName
-
-		args = shlex.split(command)
-		
-		specOutput = subprocess.Popen(args, executable = self.nuget, cwd = targetDir, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
-		print specOutput.stdout.read()
-
-	def generateNugetPackage(self, version = None, specFile = None, targetDir = None, outputDir = None) :
+	def generateNugetPackage(
+		self, 
+		version = None, 
+		specFile = None, 
+		targetDir = None, 
+		outputDir = None) :
 		if not os.path.isfile(self.nuget) :
 			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
 		
@@ -410,3 +363,148 @@ class pyke :
 
 		packOutput = subprocess.Popen(processInput, executable = self.nuget, cwd = workingDir, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
 		print packOutput.stdout.read()
+
+	def generateNuspec(
+		self, 
+		targetDir, 
+		specName = None) :
+		if not os.path.isfile(self.nuget) :
+			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
+
+		if specName == None :
+			if self.projectFile != None :
+				self.specName = os.path.splitext(self.projectFile)[0]
+		else :
+			self.specName = specName
+		
+		command = "nuget spec -Force %s" % self.specName
+
+		args = shlex.split(command)
+		
+		specOutput = subprocess.Popen(args, executable = self.nuget, cwd = targetDir, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+		print specOutput.stdout.read()
+	
+	def generateNuspec(
+		self, 
+		targetDir, 
+		specFileTemplate, 
+		specFileName = None, 
+		content = None) :
+		if not os.path.exists(targetDir) :
+			raise Exception("Unable to resolve targetDir path")
+		
+		if content != None :
+			fileContent = specFileTemplate % content
+		else :
+			fileContent = specFileTemplate
+		
+		try :
+			specFile = open(os.path.join(targetDir, self.resolveSpecFileName(specFileName)), "w")
+			try :
+				specFile.writelines(fileContent)
+			finally :
+				specFile.close()
+		except IOError :
+			raise Exception("Error generating Nuget spec file")
+
+	def getAssemblyInfoFiles(self) :
+		asmInfoFiles = []
+		for path, dirs, files in os.walk(os.path.abspath(self.basedir)) :
+			for filename in fnmatch.filter(files, "AssemblyInfo.cs") :
+				asmInfoFiles.append(os.path.join(path, filename))
+		return asmInfoFiles
+	
+	def getProjectFilePath(self, filename) :
+		for path, dirs, files in os.walk(os.path.abspath(self.basedir)) :
+			for filename in fnmatch.filter(files, filename) :
+				return os.path.abspath(os.path.join(path, filename))
+
+	def getVersion(self) :
+		now = dt.datetime.now()
+		version = now.strftime("%Y.%m.%d.%H%M")
+		return version
+	
+	def packageNuget(
+		self, 
+		targetDir, 
+		specName = None, 
+		version = None, 
+		outputDir = None) :
+		if not os.path.isfile(self.nuget) :
+			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
+
+		if not os.path.exists(targetDir) :
+			raise Exception("A directory containing the desired package contents must be specified for package generation")
+		
+		if specName == None :
+			raise Exception("A name for the package spec file must be provided")
+		else :
+			self.packageSpecFile = specName
+
+		self.generateNuspec(targetDir = targetDir, specName = self.packageSpecFile)
+		self.generateNugetPackage(
+			version = version, 
+			specFile = os.path.join(targetDir, "%s.nuspec" % specName), 
+			outputDir = outputDir)
+	
+	def packageNuget(
+		self, 
+		targetDir, 
+		specFileTemplate, 
+		specFileName = None, 
+		content = None, 
+		version = None, 
+		outputDir = None) :
+		if not os.path.isfile(self.nuget) :
+			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
+
+		if not os.path.exists(targetDir) :
+			raise Exception("A directory containing the desired package contents must be specified for package generation")
+		
+		self.generateNuspec(
+			targetDir = targetDir, 
+			specFileTemplate = specFileTemplate, 
+			specFileName = specFileName, 
+			content = content)
+		self.generateNugetPackage(
+			version = version, 
+			specFile = os.path.join(targetDir, self.resolveSpecFileName(specFileName)), 
+			outputDir = outputDir)
+	
+	def resolveSpecFileName(self, specFileName = None) :
+		if specFileName != None :
+			specFileNameParts = os.path.splitext(specFileName)
+			specFileNameLast = len(specFileNameParts)
+	
+			if specFileNameParts[specFileNameLast -1] != ".nuspec" :
+				fileName = "%s.nuspec" % specFileName
+			else :
+				fileName = specFileName
+		else :
+			if self.projectFile != None :
+				fileName = os.path.splitext(self.projectFile)[0]
+			else :
+				fileName = "package.nuspec"
+		
+		return fileName
+	
+	def restoreOriginalAssemblyInfoFiles(self) :
+		for asmInfoFile in self.assemblyInfoFiles :
+			try :
+				os.remove(asmInfoFile)
+				os.rename("%s.build-temp" % asmInfoFile, asmInfoFile)
+			except IOError :
+				raise Exception("Error restoring original AssemblyInfo file: %s" % asmInfoFile)
+
+	def writeBannerMessage(self, message) :
+		bannerMessage = self.formatBlock(
+			"""
+
+			======================================================================
+			%s
+			======================================================================
+
+			"""
+		)
+
+		print bannerMessage % message
