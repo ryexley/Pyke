@@ -482,7 +482,7 @@ class pyke :
 				fileName = specFileName
 		else :
 			if self.projectFile != None :
-				fileName = os.path.splitext(self.projectFile)[0]
+				fileName = "%s.nuspec" % os.path.splitext(self.projectFile)[0]
 			else :
 				fileName = "package.nuspec"
 		
