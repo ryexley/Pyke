@@ -1,5 +1,5 @@
 """
-Pyke, a Python make tool for .NET
+Pyke, a Python build tool for .NET
 
 This class contains common functions useful for building and packaging .NET based
 applications.
@@ -131,15 +131,6 @@ API:
 	generateNugetPackage:
 		Generates a Nuget package with the given version and specFile to the given outputDir against
 		the given targetDir.
-
-TODO:
-	* Need to figure out a good way to handle cleanup on failed execution (exceptions, etc)
-	* Add docstrings to class operations
-	* Add logging - replace print statements with logging (http://docs.python.org/library/logging.html)
-	* Check for the existence of the WINDIR environment variable. Raise exception if it can't be resolved
-	* Use os.walk to find MSBuild and Nuget (just to add some robustness)
-	* Add the ability to specify a framework version for build (should be used to determine the MSBuild location)
-	* Unit test execution
 
 """
 

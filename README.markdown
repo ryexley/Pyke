@@ -9,6 +9,18 @@ Pyke is a Python based build module for .NET projects on Windows [0]. Ultimately
 ## Documentation and usage examples ##
 For now, all of the documentation for the module can be found in the pyke.py file itself, but that's starting to get pretty heavy and unnecessary, so I'm gradually working my way towards pulling that out of the file and into here. Until I get to that, check in the file itself.
 
+## TODO ##
+There's still a few things that Pyke doesn't do that I'd like it to...you're welcome to help out if you're interested.
+
+* Need to figure out a good way to handle cleanup on failed execution (exceptions, etc)
+* Add docstrings to class operations (still a few operations that need docstrings)
+* Add logging - replace print statements with [logging](http://docs.python.org/library/logging.html)
+* Check for the existence of the WINDIR environment variable. Raise exception if it can't be resolved.
+* Use os.walk to find MSBuild and Nuget (just to add some robustness)
+* Add the ability to specify a framework version for build (should be used to determine the MSBuild location)
+* Unit test execution
+* Report generation? (I dunno...is it really worth it? We'll see)
+
 ## Why? ##
 Aren't there plenty of other build tools out there for .NET? Sure there are. But frankly, none of them were really what I wanted out of a build tool. I've grown so tired over the years of wrestling with XML, so NAnt and raw MSBuild files are just totally unappealing to me anymore. What about Rake? Albacore? Yeah, I gave that a shot too, but I was never able to get it to work consistently using the examples I found around the interwebs. Not really sure why, but it just never worked out for me. Powershell? Psake? That was actually what I originally started with when trying to write this module, but I've yet to be able to wrap my head around how Powershell works for most things, and good documentation and examples for how to do some fairly basic things (like file I/O operations, which this module uses heavily) are difficult to find at best...it just took me too long to figure out how to get things done with Powershell.
 
