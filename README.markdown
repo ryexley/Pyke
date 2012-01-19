@@ -2,9 +2,9 @@
 Pyke is a Python based build module for .NET projects on Windows [0]. Ultimately its really just a class with a collection of operations commonly used for building and packaging .NET projects; you know, things like generating and applying version numbers, performing compilation, generating Nuget spec files and packages, and more planned (if I ever have need and get around to it).
 
 ## Dependencies ##
-* _[Python](http://python.org/download/)_: obviously...
-* _[MSBuild](http://msdn.microsoft.com/en-us/library/wea2sca5(v=vs.90).aspx)_: used for compilation
-* _[Nuget](http://nuget.codeplex.com/)_: used for package generation, this module depends on the nuget.exe command line bootstrapper, which can be downloaded [here](http://nuget.codeplex.com/releases/view/58939).
+* _[Python](http://python.org/download/)_ : obviously...
+* _<a href="http://msdn.microsoft.com/en-us/library/wea2sca5(v=vs.90).aspx">MSBuild</a>_ : used for compilation
+* _[Nuget](http://nuget.codeplex.com/)_ : used for package generation, this module depends on the nuget.exe command line bootstrapper, which can be downloaded [here](http://nuget.codeplex.com/releases/view/58939).
 
 ## Documentation and usage examples ##
 For now, all of the documentation for the module can be found in the pyke.py file itself, but that's starting to get pretty heavy and unnecessary, so I'm gradually working my way towards pulling that out of the file and into here. Until I get to that, check in the file itself.
