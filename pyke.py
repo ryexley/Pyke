@@ -160,6 +160,19 @@ class pyke :
 		msbuild = None, 
 		outputDir = None, 
 		nuget = None) :
+		"""Initializes the Pyke module
+
+		Handles path resolution to tools used by the module, and builds up a 
+		list of the AssemblyInfo.cs files that will need to be updated for 
+		compilation.
+
+		Arguments:
+		basedir -- The root directory the module should work out of. Will resolve to the directory the script is executed from if not specified.
+		msbuild -- The path to the MSBuild executable. Will resolve to WINDIR\Microsoft.NET\Framework64\v4.0.30319\msbuild.exe if not specified.
+		outputDir -- The directory that will be used for build/compilation output. Will resolve to basedir\BuildOutput if not specified.
+		nuget -- The path to the Nuget command line executable. Will resolve to C:\nuget\nuget.exe if not specified.
+
+		"""
 		if basedir == None :
 			self.basedir = os.path.abspath(os.curdir)
 		else :
@@ -222,6 +235,7 @@ class pyke :
 		self.restoreOriginalAssemblyInfoFiles()
 	
 	def cleanDir(self, target) :
+		"""Deletes all files and folders (recursively) in the given directory (target)"""
 		for root, dirs, files in os.walk(target, topdown = False) :
 			for name in files :
 				os.remove(os.path.join(root, name))
@@ -232,6 +246,13 @@ class pyke :
 		self, 
 		configuration, 
 		projectFile = None) :
+		"""Compiles the given project file with the given build configuration
+
+		Arguments:
+		configuration -- The build configuration to use for compilation
+		projectFile -- The .NET project file to compile (.sln, .proj, .csproj, etc). The operation will search for the project file under basedir if the full path is not specified.
+
+		"""
 		if projectFile == None :
 			raise Exception("No project or solution file specified")
 		else : 
@@ -266,6 +287,13 @@ class pyke :
 		self, 
 		sourceDir, 
 		targetDir) :
+		"""Utility operation to copy all folder contents from the given sourceDir to the given targetDir
+
+		Arguments:
+		sourceDir -- The directory to copy the contents from
+		targetDir -- The directory to copy the contents of sourceDir into. Will be created if it doesn't exist.
+
+		"""
 		try :
 			if os.path.exists(targetDir) :
 				self.cleanDir(targetDir)
@@ -278,6 +306,25 @@ class pyke :
 			raise Exception("Unable to copy directory contents: \n%s" % osex)
 
 	def formatAssemblyInfoFileContent(self, assemblyInfo) :
+		"""Formats the contents of an AssemblyInfo.cs file using the given assemblyInfo dictionary
+
+		Uses the given assemblyInfo dictionary to format a block of content that will be injected
+		into a new AssemblyInfo.cs file prior to compilation.
+
+		Arguments:
+		assemblyInfo -- A dictionary containing values that will be used to replace tokens in the content block to be formatted. Should contain the following keys:
+			- ClsCompliant: boolean flag
+			- ComVisible: boolean flag
+			- Title: Assembly Title. Displayed as description when the mouse is hovered over the assembly in Windows Explorer after compilation.
+			- Description: Extended description for the assembly
+			- Company: The owning company for the assembly
+			- Product: The name of the product the assembly is a member of
+			- Copyright: Copyright information for the assembly
+			- Version: The compiled version of the assembly
+			- InformationalVersion: Version string containing extended information
+			- FileVersion: FileVersion for the assembly
+
+		"""
 		fileContent = self.formatBlock(
 			"""
 			using System;
@@ -302,6 +349,12 @@ class pyke :
 		return fileContent % self.assemblyInfo
 
 	def formatBlock(self, block) :
+		"""Format the given block of text, trimming leading/trailing
+        empty lines and any leading whitespace that is common to all lines.
+        The purpose is to let us list a code block as a multiline,
+        triple-quoted Python string, taking care of indentation concerns.
+
+		"""
 		lines = str(block).split("\n")
 		while lines and not lines[0] : del lines[0]
 		while lines and not lines[-1] : del lines[-1]
@@ -314,6 +367,18 @@ class pyke :
 		return "\n".join(lines) + "\n"
 	
 	def generateAssemblyInfoFiles(self, assemblyInfo) :
+		"""Generates new AssemblyInfo.cs files to be used for project/assembly compilation
+
+		Iterates over the list of AssemblyInfo.cs files generated on module initilization, and
+		performs the following actions for each:
+			- Renames the existing AssemblyInfo.cs to AssemblyInfo.cs.build-temp
+			- Creates a new AssemblyInfo.cs in the same location as the original, setting
+			  the new files contents to the value returned by formatAssemblyInfoFileContent
+		
+		Arguments:
+		assemblyInfo -- A dictionary of tokens used to populate the contents of the new AssemblyInfo file
+
+		"""
 		for asmInfoFile in self.assemblyInfoFiles :
 			try :
 				os.rename(asmInfoFile, "%s.build-temp" % asmInfoFile)
@@ -332,6 +397,15 @@ class pyke :
 		specFile = None, 
 		targetDir = None, 
 		outputDir = None) :
+		"""Generates a Nuget package
+
+		Arguments:
+		version -- The version number to apply to the generated package (optional)
+		specFile -- The Nuget spec file to use to generate the package (optional)
+		targetDir -- The directory containing the contents of the Nuget package to generate. Will use basedir if not specified.
+		outputDir -- The directory to generate the new package to (optional)
+
+		"""
 		if not os.path.isfile(self.nuget) :
 			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
 		
@@ -368,6 +442,13 @@ class pyke :
 		self, 
 		targetDir, 
 		specName = None) :
+		"""Generates a Nuget spec file
+
+		Arguments:
+		targetDir -- The target directory that the spec file should be generated to and based on
+		specName -- The name to use for the generated spec file. Will attempt to use the given projectFile name if not specified.
+
+		"""
 		if not os.path.isfile(self.nuget) :
 			raise Exception("Unable to resolve path to Nuget command line tool (%s)" % self.nuget)
 
@@ -390,6 +471,18 @@ class pyke :
 		specFileTemplate, 
 		specFileName = None, 
 		content = None) :
+		"""Generates a Nuget spec file
+
+		Overload operation that takes a template and dictionary of tokens to be formatted. The formatted
+		content will be used as the content of the new spec file to generate.
+
+		Arguments:
+		targetDir -- The target directory to generate the new spec file in
+		specFileTemplate -- A block of text with token placeholders representing the desired content of the generated spec file
+		specFileName -- The desired name of the generated spec file. Will default to package.nuspec if no name is given and no projectFile name has been set.
+		content -- Dictionary of token replacement values used for formatting specFileTemplate
+
+		"""
 		if not os.path.exists(targetDir) :
 			raise Exception("Unable to resolve targetDir path")
 		
@@ -408,6 +501,7 @@ class pyke :
 			raise Exception("Error generating Nuget spec file")
 
 	def getAssemblyInfoFiles(self) :
+		"""Walks basedir and generates and returns a list containing the absolute paths to all AssemblyInfo.cs files that are found"""
 		asmInfoFiles = []
 		for path, dirs, files in os.walk(os.path.abspath(self.basedir)) :
 			for filename in fnmatch.filter(files, "AssemblyInfo.cs") :
@@ -415,11 +509,13 @@ class pyke :
 		return asmInfoFiles
 	
 	def getProjectFilePath(self, filename) :
+		"""Walks basedir looking for the given project file name. Returns the absolute path to the file when found."""
 		for path, dirs, files in os.walk(os.path.abspath(self.basedir)) :
 			for filename in fnmatch.filter(files, filename) :
 				return os.path.abspath(os.path.join(path, filename))
 
 	def getVersion(self) :
+		"""Generates and returns a date/time based version number in the format of YYYY.MM.DD.HHMM"""
 		now = dt.datetime.now()
 		version = now.strftime("%Y.%m.%d.%H%M")
 		return version
